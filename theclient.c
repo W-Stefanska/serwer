@@ -17,13 +17,13 @@ void pad_name(char *name) // fukcja dodaje padding do name
     {
         name[i] = '_';
     }
-    name[8] = '\0';
+    //name[8] = '\0';
 }
 
 void fill_buffer(char *packet)
 {
     int len = strlen(packet);
-    for (int i = (len-1); i < 1000; i++) 
+    for (int i = (len); i < 1000; i++) 
     {
         packet[i] = '0';
     }
@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    char name[9];
+    char name[8];
     strncpy(name, argv[1], 8);
     name[8] = '\0'; 
     
@@ -50,17 +50,13 @@ int main(int argc, char *argv[])
     if( strlen(name) < 8 ) 
     {
         pad_name(name);
-        fprintf(stderr, "\nTest: %s\nZnak:%s\n",name,name[8]);
-        fprintf(stderr, "Zmieniona nazwa: %s\n", name);
     }
-
-
 
     int sockfd;
     struct sockaddr_in serv_addr;
-    char buffer[MAX_MSG_LEN];
+    char buffer[1000];
     char *opis_bledu = "c";
-    int bitent[15];
+    int bitent[16];
     char *adres = argv[2]; // adres serwera
     int port = atoi(argv[3]); // numer portu
 
@@ -90,18 +86,16 @@ int main(int argc, char *argv[])
         exit( 3 );
     }
     
-
-
     char packetA1[1000];
     char packetA2[1000];
     char packetA3[1000];
 
     // Przygotowanie pakietow
-    snprintf(packetA1, sizeof(packetA1), "@%s0!N:0#", name);
+    snprintf(packetA1, sizeof(packetA1), "@%s0!N:", name);
     fill_buffer(packetA1);
-    snprintf(packetA2, sizeof(packetA2), "@%s0!R:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d0#", name, bitent[0],bitent[1],bitent[2],bitent[3],bitent[4],bitent[5],bitent[6],bitent[7],bitent[8],bitent[9],bitent[10],bitent[11],bitent[12],bitent[13],bitent[14],bitent[15]);
+    snprintf(packetA2, sizeof(packetA2), "@%s0!R:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", name, bitent[0],bitent[1],bitent[2],bitent[3],bitent[4],bitent[5],bitent[6],bitent[7],bitent[8],bitent[9],bitent[10],bitent[11],bitent[12],bitent[13],bitent[14],bitent[15]);
 
-    snprintf(packetA3, sizeof(packetA3), "@%s0!E:%s0#", name, opis_bledu);
+    snprintf(packetA3, sizeof(packetA3), "@%s0!E:%s", name, opis_bledu);
 
     // Wysyłanie pakietu A1
     if (send(s, packetA1, strlen(packetA1), 0) < 0) {
@@ -111,7 +105,6 @@ int main(int argc, char *argv[])
     }
 
     printf("Pakiet A1 wysłany: %.13s\n", packetA1);
-    printf("NAzwa: %s \n DLugosc: %ld", name, strlen(name));
     while( recv( s, buffer, sizeof( buffer ), 0 ) > 0 )
     {
         puts( buffer );

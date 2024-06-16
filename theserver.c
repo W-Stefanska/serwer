@@ -24,6 +24,16 @@ struct timevalue
     int tv_usec; // ilosc mikrosekund
 };
 
+void fill_buffer(char *packet)
+{
+    int len = strlen(packet);
+    for (int i = (len); i < 1000; i++) 
+    {
+        packet[i] = '0';
+    }
+    packet[999] = '#';
+}
+
 int create_data(int idx, struct CALCDATA *cdata)
 {
     if (cdata != NULL)
@@ -123,7 +133,7 @@ int main(int argc, char *argv[]) // tu ma byc tylko nr portu nasluchujacego tj. 
             continue;
         }
        
-        char buffer[ MAX_MSG_LEN ] = { };
+        char buffer[1000];
        
         if( recv( clientSocket, buffer, sizeof( buffer ), 0 ) <= 0 )
         {
@@ -132,9 +142,14 @@ int main(int argc, char *argv[]) // tu ma byc tylko nr portu nasluchujacego tj. 
             continue;
         }
         printf( "|Message from client|: %s \n", buffer );
-       
+
+        char packetB1[1000];
+        snprintf(packetB1, sizeof(packetB1), "@000000000!N:%s", "5005");
+        fill_buffer(packetB1);
+    
+
         strcpy( buffer, "Message from server: Odpowiedz" );
-        if( send( clientSocket, buffer, strlen( buffer ), 0 ) <= 0 )
+        if( send( clientSocket, packetB1, strlen( packetB1 ), 0 ) <= 0 )
         {
             perror( "send() ERROR" );
             close(clientSocket);
