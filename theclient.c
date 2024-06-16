@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
 
     int sockfd;
     struct sockaddr_in serv_addr;
-    char buffer[1000];
+    char buffer[1000]; // nie ruszac
     char *opis_bledu = "c";
     int bitent[16];
     char *adres = argv[2]; // adres serwera

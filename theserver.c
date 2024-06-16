@@ -9,7 +9,6 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#define MAX_MSG_LEN 4096
 #define MAX_CONNECTION 1000
 #define MAX_DATA 100000
 
@@ -61,69 +60,112 @@ int main(int argc, char *argv[]) // tu ma byc tylko nr portu nasluchujacego tj. 
         fprintf(stderr, "Wpisz: %s <port>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
-    else
-    {
-        fprintf(stderr, "Nasluchiwanie na porcie %s\n", argv[1]);
-    }
 
     int port = atoi(argv[1]);
-    int server_socket, new_socket, client_socket[MAX_CONNECTION];
+    int server_socket, data_socket, client_socket[10];
     struct sockaddr_in server_addr, client_addr;
     socklen_t addr_len = sizeof(client_addr);
-    fd_set readfds;
-    int max_sd, sd, activity, valread;
-    char buffer[MAX_MSG_LEN];
 
-    struct sockaddr_in serwer =
-    {
-        .sin_family = AF_INET,
-        .sin_port = htons(port)
-    };
+    // tu jest socket serwera
+    server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_socket < 0) {
+        perror("socket() ERROR");
+        exit(EXIT_FAILURE);
+    }
 
-    if( inet_pton( AF_INET, "127.0.0.1", &serwer.sin_addr ) <= 0 )
+    // struktura
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_port = htons(port);
+
+    if( inet_pton( AF_INET, "127.0.0.1", &server_addr.sin_addr ) <= 0 )
     {
         perror( "inet_pton() ERROR" );
         exit( 1 );
     }
     
-    // socket klienta
-    for (int i = 0; i < MAX_CONNECTION; i++) {
+    // bindowanie
+    socklen_t len = sizeof( server_addr );
+    if (bind(server_socket, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0) {
+        perror("bind() ERROR");
+        close(server_socket);
+        exit(EXIT_FAILURE);
+    }
+   
+    // nasłuchiwanie
+    if (listen(server_socket, MAX_CONNECTION) < 0) {
+        perror("listen() ERROR");
+        close(server_socket);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Nasluchiwanie na porcie %d...\n", port);
+   
+    // tutaj mam 10 klientow
+    for (int i = 0; i < 10; i++) 
+    {
         client_socket[i] = 0;
     }
 
-    // socket serwera
-    server_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if( server_socket < 0 )
-    {
-        perror( "socket() ERROR" );
-        exit( 2 );
+    // socket nr 2
+    data_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (data_socket < 0) {
+        perror("socket() ERROR");
+        exit(EXIT_FAILURE);
     }
-   
-    socklen_t len = sizeof( serwer );
-    if( bind( server_socket, (struct sockaddr * ) &serwer, len ) < 0 )
+
+    // DO ZMIENIENIA
+    struct sockaddr_in data_addr;
+    memset(&data_addr, 0, sizeof(data_addr));
+    data_addr.sin_family = AF_INET;
+    data_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    data_addr.sin_port = htons(port + 1);
+
+    // bind vol 2
+    if (bind(data_socket, (struct sockaddr *) &data_addr, sizeof(data_addr)) < 0) 
     {
-        perror( "bind() ERROR" );
-        close(server_socket);
-        exit( 3 );
+        perror("bind() ERROR");
+        close(data_socket);
+        exit(EXIT_FAILURE);
     }
-   
-    if( listen( server_socket, MAX_CONNECTION ) < 0 )
+
+    // tu listen vol 2 
+    if (listen(data_socket, MAX_CONNECTION) < 0) 
     {
-        perror( "listen() ERROR" );
-        close(server_socket);
-        exit( 4 );
+        perror("listen() ERROR");
+        close(data_socket);
+        exit(EXIT_FAILURE);
     }
-   
+
+    printf("JESLI CZZYTASZ TE WIAD TO PORT 2 DZIALA %d <--- a to jego nr\n", port + 1);
+
+    fd_set readfds;
+    int max_sd, activity;
+    
+    
     while( 1 )
     {
-        // Clear the socket set
+        char buffer[1000]; // nie ruszac
+       
         FD_ZERO(&readfds);
-
-        // Add server socket to set
         FD_SET(server_socket, &readfds);
         max_sd = server_socket;
-        printf( "Waiting for connection...\n" );
+        printf( "Oczekiwanie na polaczenie...\n" );
        
+        // dodawanie deskryptorow
+        for (int i = 0; i < 10; i++) 
+        {
+            int sd = client_socket[i];
+            
+            if (sd > 0)
+                FD_SET(sd, &readfds);
+            
+            if (sd > max_sd)
+                max_sd = sd;
+        }
+
+
         struct sockaddr_in client = { };
        
         const int clientSocket = accept( server_socket, (struct sockaddr * ) &client, &len );
@@ -133,21 +175,20 @@ int main(int argc, char *argv[]) // tu ma byc tylko nr portu nasluchujacego tj. 
             continue;
         }
        
-        char buffer[1000];
-       
         if( recv( clientSocket, buffer, sizeof( buffer ), 0 ) <= 0 )
         {
             perror( "recv() ERROR" );
             close(clientSocket);
             continue;
         }
-        printf( "|Message from client|: %s \n", buffer );
+        printf( "|Message from client|: %s\n", buffer );
 
         char packetB1[1000];
         snprintf(packetB1, sizeof(packetB1), "@000000000!N:%s", "5005");
         fill_buffer(packetB1);
     
-
+        socklen_t len = sizeof( server_addr );
+    
         strcpy( buffer, "Message from server: Odpowiedz" );
         if( send( clientSocket, packetB1, strlen( packetB1 ), 0 ) <= 0 )
         {
@@ -155,7 +196,7 @@ int main(int argc, char *argv[]) // tu ma byc tylko nr portu nasluchujacego tj. 
             close(clientSocket);
             continue;
         }
-       
+
         shutdown( clientSocket, SHUT_RDWR );
         close(clientSocket);
     }
