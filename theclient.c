@@ -10,6 +10,26 @@
 
 #define MAX_MSG_LEN 256
 
+void pad_name(char *name) // fukcja dodaje padding do name
+{
+    int len = strlen(name);
+    for (int i = len; i < 8; i++) 
+    {
+        name[i] = '_';
+    }
+    name[8] = '\0';
+}
+
+void fill_buffer(char *packet)
+{
+    int len = strlen(packet);
+    for (int i = (len-1); i < 1000; i++) 
+    {
+        packet[i] = '0';
+    }
+    packet[999] = '#';
+}
+
 int main(int argc, char *argv[])
 {
     if (argc != 4) {
@@ -17,8 +37,9 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    char *name = argv[1]; // nazwa klienta
-
+    char name[9];
+    strncpy(name, argv[1], 8);
+    name[8] = '\0'; 
     
     if( strlen(argv[1]) > 8 )
     {
@@ -26,16 +47,13 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    if( strlen(argv[1]) < 8 )
+    if( strlen(name) < 8 ) 
     {
-        fprintf(stderr, "Zmienianie nazwy\n");
-        for(int i = strlen(argv[1]); i < 9; i++)
-        {
-            sprintf(name, "%s_", name);
-        }
-        fprintf(stderr, "Zmiana sukces\n");
-        fprintf(stderr, name);
+        pad_name(name);
+        fprintf(stderr, "\nTest: %s\nZnak:%s\n",name,name[8]);
+        fprintf(stderr, "Zmieniona nazwa: %s\n", name);
     }
+
 
 
     int sockfd;
@@ -80,7 +98,7 @@ int main(int argc, char *argv[])
 
     // Przygotowanie pakietow
     snprintf(packetA1, sizeof(packetA1), "@%s0!N:0#", name);
-
+    fill_buffer(packetA1);
     snprintf(packetA2, sizeof(packetA2), "@%s0!R:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d0#", name, bitent[0],bitent[1],bitent[2],bitent[3],bitent[4],bitent[5],bitent[6],bitent[7],bitent[8],bitent[9],bitent[10],bitent[11],bitent[12],bitent[13],bitent[14],bitent[15]);
 
     snprintf(packetA3, sizeof(packetA3), "@%s0!E:%s0#", name, opis_bledu);
@@ -92,7 +110,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    printf("Pakiet A1 wysłany: %s\n", packetA1);
+    printf("Pakiet A1 wysłany: %.13s\n", packetA1);
     printf("NAzwa: %s \n DLugosc: %ld", name, strlen(name));
     while( recv( s, buffer, sizeof( buffer ), 0 ) > 0 )
     {
