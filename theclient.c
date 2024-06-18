@@ -8,7 +8,8 @@
 #include <arpa/inet.h> // inet_pton()
 #include <netdb.h> // gethostbyname()
 
-#define MAX_MSG_LEN 256
+#define MAX_MSG_LEN 1000
+#define MAX_DATA 100000
 
 void pad_name(char *name) // fukcja dodaje padding do name
 {
@@ -30,6 +31,18 @@ void fill_buffer(char *packet)
     packet[999] = '#';
 }
 
+void process_data(uint32_t *data, size_t len, uint32_t *bitcnt) {
+    for (size_t i = 0; i < len; i++) {
+        if ((data[i] & 0xFFFF0000) == 0) {
+            for (int j = 0; j < 16; j++) {
+                if (data[i] & (1 << j)) {
+                    bitcnt[j]++;
+                }
+            }
+        }
+    }
+}
+
 int main(int argc, char *argv[])
 {
     if (argc != 4) {
@@ -37,7 +50,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    char name[8];
+    char name[9];
     strncpy(name, argv[1], 8);
     name[8] = '\0'; 
     
@@ -56,7 +69,7 @@ int main(int argc, char *argv[])
     struct sockaddr_in serv_addr;
     char buffer[1000]; // nie ruszac
     char *opis_bledu = "c";
-    int bitent[16];
+    uint32_t bitcnt[16] = {0};
     char *adres = argv[2]; // adres serwera
     int port = atoi(argv[3]); // numer portu
 
@@ -93,25 +106,42 @@ int main(int argc, char *argv[])
     // Przygotowanie pakietow
     snprintf(packetA1, sizeof(packetA1), "@%s0!N:", name);
     fill_buffer(packetA1);
-    snprintf(packetA2, sizeof(packetA2), "@%s0!R:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", name, bitent[0],bitent[1],bitent[2],bitent[3],bitent[4],bitent[5],bitent[6],bitent[7],bitent[8],bitent[9],bitent[10],bitent[11],bitent[12],bitent[13],bitent[14],bitent[15]);
+    snprintf(packetA2, sizeof(packetA2), "@%s0!R:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d", name, bitcnt[0],bitcnt[1],bitcnt[2],bitcnt[3],bitcnt[4],bitcnt[5],bitcnt[6],bitcnt[7],bitcnt[8],bitcnt[9],bitcnt[10],bitcnt[11],bitcnt[12],bitcnt[13],bitcnt[14],bitcnt[15]);
 
     snprintf(packetA3, sizeof(packetA3), "@%s0!E:%s", name, opis_bledu);
 
     // Wysyłanie pakietu A1
-    if (send(s, packetA1, strlen(packetA1), 0) < 0) {
+    if (send(s, packetA1, sizeof(packetA1), 0) < 0) {
         perror("send() failed");
         close(s);
         exit(EXIT_FAILURE);
     }
 
     printf("Pakiet A1 wysłany: %.13s\n", packetA1);
-    while( recv( s, buffer, sizeof( buffer ), 0 ) > 0 )
-    {
-        puts( buffer );
+    
+    
+    int received_data = 0;
+    while (received_data < MAX_DATA * sizeof(uint32_t)) {
+        int bytes_received = recv(s, buffer, sizeof(buffer), 0);
+        if (bytes_received < 0) {
+            perror("recv() ERROR");
+            break;
+        }
+        received_data += bytes_received;
+
+        int values_received = bytes_received / sizeof(uint32_t);
+        process_data((uint32_t *)buffer, values_received, bitcnt);
     }
-   
+    close(s);
+
+    printf("Histogram bitow:\n");
+    for (int i = 0; i < 16; i++) 
+    {
+        printf("Bit %d: %u\n", i, bitcnt[i]);
+    }
+
     shutdown( s, SHUT_RDWR );
     close(s);
-   
+    
     return 0;
 }

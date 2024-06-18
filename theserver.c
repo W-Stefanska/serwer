@@ -33,7 +33,7 @@ void fill_buffer(char *packet)
     packet[999] = '#';
 }
 
-int create_data(int idx, struct CALCDATA *cdata)
+int create_data(/*int idx,*/ struct CALCDATA *cdata)
 {
     if (cdata != NULL)
     {
@@ -60,7 +60,9 @@ int main(int argc, char *argv[]) // tu ma byc tylko nr portu nasluchujacego tj. 
         fprintf(stderr, "Wpisz: %s <port>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
-
+    struct CALCDATA cdata;
+    create_data(&cdata);
+    
     int port = atoi(argv[1]);
     int server_socket, data_socket, client_socket[10];
     struct sockaddr_in server_addr, client_addr;
@@ -181,23 +183,56 @@ int main(int argc, char *argv[]) // tu ma byc tylko nr portu nasluchujacego tj. 
             close(clientSocket);
             continue;
         }
-        printf( "|Message from client|: %s\n", buffer );
 
         char packetB1[1000];
         snprintf(packetB1, sizeof(packetB1), "@000000000!N:%s", "5005");
         fill_buffer(packetB1);
     
         socklen_t len = sizeof( server_addr );
-    
-        strcpy( buffer, "Message from server: Odpowiedz" );
-        if( send( clientSocket, packetB1, strlen( packetB1 ), 0 ) <= 0 )
+
+
+        printf( "|Message from client|: %.13s\n", buffer );
+        switch(buffer[11])
         {
-            perror( "send() ERROR" );
-            close(clientSocket);
-            continue;
+            case 'N':
+                /*strcpy( buffer, "Message from server: " );
+                if( send( clientSocket, packetB1, strlen( packetB1 ), 0 ) <= 0 )
+                {
+                    perror( "send() ERROR" );
+                    close(clientSocket);
+                    continue;
+                }       */     
+                break;
+            case 'R':
+                break;
+            case 'E':
+                break;
+        }
+        if (buffer[11] == 'N') {
+            char packetB1[1000];
+            snprintf(packetB1, sizeof(packetB1), "@000000000!N:%s", "5005");
+            fill_buffer(packetB1);
+            if (send(clientSocket, packetB1, sizeof(packetB1), 0) < 0) {
+                perror("send() ERROR");
+                close(clientSocket);
+                continue;
+            }
+
+            int sent = 0;
+            while (sent < MAX_DATA * sizeof(uint32_t)) {
+                int to_send = 1000;
+                if (sent + 1000 > MAX_DATA * sizeof(uint32_t)) {
+                    to_send = MAX_DATA * sizeof(uint32_t) - sent;
+                }
+                int bytes_sent = send(clientSocket, ((char *)cdata.data) + sent, to_send, 0);
+                if (bytes_sent < 0) {
+                    perror("send() ERROR");
+                    break;
+                }
+                sent += bytes_sent;
+            }
         }
 
-        shutdown( clientSocket, SHUT_RDWR );
         close(clientSocket);
     }
    
